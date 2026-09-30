@@ -1,0 +1,57 @@
+- hosts: appservers
+  become: yes
+  vars:
+    app_user: appuser
+    app_dir: /opt/devops-case-study-amazon
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - python3-pip
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Create app user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Copy app files
+      copy:
+        src: "../{{ item }}"
+        dest: "{{ app_dir }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+      loop:
+        - app.py
+        - requirements.txt
+        - Dockerfile
+
+    - name: Build Docker image
+      community.docker.docker_image:
+        name: devops-demo
+        tag: latest
+        source: build
+        build:
+          path: "{{ app_dir }}"
+        state: present
+
+    - name: Run container
+      community.docker.docker_container:
+        name: devops-demo
+        image: devops-demo:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "5000:5000"
