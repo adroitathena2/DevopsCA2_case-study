@@ -2,7 +2,9 @@
   become: yes
   vars:
     app_user: appuser
-    app_dir: /opt/devops-case-study-amazon
+    base_dir: /opt/devops-ca2
+    netflix_dir: "{{ base_dir }}/netflix"
+    capitalone_dir: "{{ base_dir }}/capitalone"
   tasks:
     - name: Install required packages
       apt:
@@ -19,18 +21,22 @@
         shell: /bin/bash
         create_home: yes
 
-    - name: Create app directory
+    - name: Create service directories
       file:
-        path: "{{ app_dir }}"
+        path: "{{ item }}"
         state: directory
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
         mode: '0755'
+      loop:
+        - "{{ netflix_dir }}"
+        - "{{ capitalone_dir }}"
 
-    - name: Copy app files
+    # Netflix (Q1 microservices + chaos demo, port 5001)
+    - name: Copy Netflix app files
       copy:
-        src: "../{{ item }}"
-        dest: "{{ app_dir }}/"
+        src: "../services/netflix/{{ item }}"
+        dest: "{{ netflix_dir }}/"
         owner: "{{ app_user }}"
         group: "{{ app_user }}"
       loop:
@@ -38,20 +44,50 @@
         - requirements.txt
         - Dockerfile
 
-    - name: Build Docker image
+    - name: Build Netflix image
       community.docker.docker_image:
-        name: devops-demo
+        name: netflix-demo
         tag: latest
         source: build
         build:
-          path: "{{ app_dir }}"
+          path: "{{ netflix_dir }}"
         state: present
 
-    - name: Run container
+    - name: Run Netflix container
       community.docker.docker_container:
-        name: devops-demo
-        image: devops-demo:latest
+        name: netflix-demo
+        image: netflix-demo:latest
         state: started
         restart_policy: always
         ports:
-          - "5000:5000"
+          - "5001:5000"
+
+    # Capital One (Q2 DevSecOps demo, port 5002)
+    - name: Copy Capital One app files
+      copy:
+        src: "../services/capitalone/{{ item }}"
+        dest: "{{ capitalone_dir }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+      loop:
+        - app.py
+        - requirements.txt
+        - Dockerfile
+
+    - name: Build Capital One image
+      community.docker.docker_image:
+        name: capitalone-demo
+        tag: latest
+        source: build
+        build:
+          path: "{{ capitalone_dir }}"
+        state: present
+
+    - name: Run Capital One container
+      community.docker.docker_container:
+        name: capitalone-demo
+        image: capitalone-demo:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "5002:5000"

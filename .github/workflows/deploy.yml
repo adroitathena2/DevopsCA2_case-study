@@ -6,7 +6,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # lowercase base (GHCR rejects uppercase)
+  IMAGE_BASE: adroitathena2/devops-ca2-case-study
 
 jobs:
   test:
@@ -16,8 +17,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: python -m pytest || echo "No tests yet"
+      - name: Install deps + test tools
+        run: |
+          pip install -r services/netflix/requirements.txt \
+                      -r services/capitalone/requirements.txt \
+                      pytest bandit
+      - name: Run service tests
+        run: python -m pytest services/netflix/test_netflix.py services/capitalone/test_capitalone.py -v
+      - name: Shift-left security scan (SAST)
+        run: bandit -r services -s B101 -f txt
 
   build-and-push:
     needs: test
@@ -33,14 +41,33 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Extract metadata (auto-lowercases image name for GHCR)
-        id: meta
+
+      - name: Extract metadata (netflix)
+        id: meta-netflix
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-      - uses: docker/build-push-action@v5
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-netflix
+
+      - name: Extract metadata (capitalone)
+        id: meta-capitalone
+        uses: docker/metadata-action@v5
         with:
-          context: .
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-capitalone
+
+      - name: Build and push netflix image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/netflix
+          file: ./services/netflix/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-netflix.outputs.tags }}
+          labels: ${{ steps.meta-netflix.outputs.labels }}
+
+      - name: Build and push capitalone image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/capitalone
+          file: ./services/capitalone/Dockerfile
+          push: true
+          tags: ${{ steps.meta-capitalone.outputs.tags }}
+          labels: ${{ steps.meta-capitalone.outputs.labels }}

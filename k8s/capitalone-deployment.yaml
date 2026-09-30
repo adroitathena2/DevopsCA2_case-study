@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: devops-demo
+  name: capitalone-demo
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: devops-demo
+      app: capitalone-demo
   template:
     metadata:
       labels:
-        app: devops-demo
+        app: capitalone-demo
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "5000"
         prometheus.io/path: "/metrics"
     spec:
       containers:
-      - name: devops-demo
-        image: devops-demo:latest
+      - name: capitalone-demo
+        image: ghcr.io/adroitathena2/devops-ca2-case-study-capitalone:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000

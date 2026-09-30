@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: devops-demo
+  name: netflix-demo
   namespace: monitoring
   labels:
     release: monitoring
@@ -10,7 +10,7 @@ spec:
     any: true
   selector:
     matchLabels:
-      app: devops-demo
+      app: netflix-demo
   endpoints:
   - port: web
     path: /metrics

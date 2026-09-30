@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: devops-demo
+  name: netflix-demo
   labels:
-    app: devops-demo
+    app: netflix-demo
 spec:
   selector:
-    app: devops-demo
+    app: netflix-demo
   ports:
   - name: web
     port: 80

@@ -131,45 +131,64 @@ More checks, yet faster — because faults are cheapest at commit, batches stay 
 
 ## Hands-on Implementation in This Repository
 
-Mini-demo applying the same principles (microservice + automation + observability) at student scale. Originally framed as an Amazon-style two-pizza-team migration; the mechanics mirror Q1/Q2 above.
+Two mini-demos applying the case-study ideas at student scale — one per report question. No Amazon code remains.
 
-**Pipeline:** Developer → GitHub Actions → Docker build → GHCR → Kubernetes (rolling update) → Prometheus → Grafana
+**Pipeline:** Developer → GitHub Actions (pytest + Bandit) → Docker build → GHCR (`-netflix`, `-capitalone`) → Kubernetes (rolling update) → Prometheus → Grafana
 
 **Tech stack:** Flask + `prometheus-flask-exporter` · Docker · Kubernetes (Docker Desktop) · GitHub Actions · Ansible · Prometheus & Grafana
 
 ### Repo structure
 
-- `.github/workflows/deploy.yml` — CI/CD (test → build & push to GHCR)
-- `ansible/inventory.ini`, `ansible/playbook.yml` — config management (Docker, user, build/run container)
-- `k8s/deployment.yaml`, `k8s/service.yaml` — K8s deploy + NodePort service (`/health` probes)
-- `k8s/servicemonitor.yaml` — Prometheus scrape (`/metrics`)
-- `app.py`, `requirements.txt`, `Dockerfile` — Flask microservice (`/`, `/health`, `/work`, `/metrics`)
+- `.github/workflows/deploy.yml` — CI/CD (test both services + Bandit SAST → build & push both images)
+- `services/netflix/` — Q1 demo: `app.py`, `requirements.txt`, `Dockerfile`, `test_netflix.py`
+- `services/capitalone/` — Q2 demo: `app.py`, `requirements.txt`, `Dockerfile`, `test_capitalone.py`
+- `ansible/inventory.ini`, `ansible/playbook.yml` — config management (Netflix on `5001:5000`, Capital One on `5002:5000`)
+- `k8s/netflix-deployment.yaml`, `k8s/netflix-service.yaml`, `k8s/netflix-servicemonitor.yaml`
+- `k8s/capitalone-deployment.yaml`, `k8s/capitalone-service.yaml`, `k8s/capitalone-servicemonitor.yaml`
+
+### What each service shows
+
+**Netflix (`services/netflix`, Q1):** mock browse / recommend / billing / `stream/<id>` as independent routes, graceful degradation (play continues if billing faults), `/chaos/enable|disable|status` for Chaos-Monkey-style injection (off by default for deterministic tests), custom `netflix_stream_plays_total` / `netflix_billing_failures_total` metrics.
+
+**Capital One (`services/capitalone`, Q2):** mock `/balance`, `/transfer` (POST) with strict account/amount validation, audit log (`/audit`), compliance proof endpoint (`/compliance`), security headers on every response, Bandit SAST in CI as the shift-left gate. Fully deterministic — no random failures.
 
 ### Pipeline flow
 
 1. Push to `main` triggers Actions.
-2. Job `test`: Python 3.11, install deps, pytest (or pass if none yet).
-3. Job `build-and-push`: Buildx + `docker/metadata-action` (lowercases GHCR name) → push `ghcr.io/<owner>/<repo>:latest`.
-4. K8s pulls latest with zero-downtime rolling update; Prometheus scrapes, Grafana visualises uptime/latency/errors.
+2. Job `test`: Python 3.11, install both services' deps + `pytest` + `bandit`, run `pytest services/...` , run `bandit -r services -s B101`.
+3. Job `build-and-push`: Buildx + `docker/metadata-action` (lowercases GHCR name) → push `ghcr.io/<owner>/<repo>-netflix:latest` and `...-capitalone:latest`.
+4. K8s pulls latest with zero-downtime rolling updates; Prometheus scrapes `/metrics` via ServiceMonitors, Grafana visualises uptime/latency/errors.
 
 ### Run locally
 
 ```bash
-pip install -r requirements.txt
-python app.py          # http://localhost:5000, /health, /metrics
+# Netflix on 5001
+pip install -r services/netflix/requirements.txt
+python services/netflix/app.py            # internally :5000
 # or
-docker build -t devops-demo .
-docker run -p 5000:5000 devops-demo
+docker build -t netflix-demo ./services/netflix
+docker run -p 5001:5000 netflix-demo      # /browse, /stream/s1, /chaos/status
+
+# Capital One on 5002
+pip install -r services/capitalone/requirements.txt
+python services/capitalone/app.py
+# or
+docker build -t capitalone-demo ./services/capitalone
+docker run -p 5002:5000 capitalone-demo   # /balance?account=ACC10001, /compliance
+
+# tests + security scan
+python -m pytest services/netflix/test_netflix.py services/capitalone/test_capitalone.py -v
+bandit -r services -s B101 -f txt
 ```
 
 ### Theory → practice mapping
 
 | Case-study idea | Demo analogue |
 |---|---|
-| Small owning service (Netflix/Amazon) | Single Flask service, own Dockerfile + K8s manifests |
-| Automated delivery (Spinnaker / InnerSource pipeline) | GitHub Actions test + build-push |
-| Secure/consistent config (image bakery) | Ansible playbook + versioned GHCR image |
-| Chaos / steady proof (Chaos Monkey / shift-left scans) | `/health` probes, rolling updates, Prometheus `/metrics` + ServiceMonitor |
+| Small owning services, graceful degradation (Q1) | Netflix routes + fallback recommend/stream when chaos faults |
+| Chaos trials, auto-recovery (Q1) | `/chaos/*` toggle, `/health` probes, rolling updates, `/metrics` |
+| Shift-left scans, compliance-as-code (Q2) | Bandit in CI, validation, security headers, `/audit`, `/compliance` |
+| Consistent config, image bakery (Q2) | Ansible playbook + versioned GHCR images per service |
 
 ### Challenges faced (WSL / Windows notes)
 
