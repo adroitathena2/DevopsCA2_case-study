@@ -1,9 +1,4 @@
 # DevOps Case Study Evaluation: CA-II
-
-> Theory + hands-on demo: how Netflix escaped the monolith with microservices and Chaos Engineering (Q1), and how Capital One escaped 6–9 month releases with DevSecOps and shift-left security (Q2) — plus a working Flask / Docker / Kubernetes / Ansible / GitHub Actions / Prometheus demo in this repo that applies the same ideas at small scale.
->
-> Source report: `DEVOPS CA2_final.docx`. All sections below are retained from that report, paraphrased and reordered for reading on GitHub. Figures and graphs are extracted verbatim from the report.
-
 ## Contents
 
 - [Q1. Netflix: Overcoming the Monolith](#q1-netflix-overcoming-the-monolith-through-microservices-and-chaos-engineering)
