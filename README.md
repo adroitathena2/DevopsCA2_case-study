@@ -126,8 +126,6 @@ More checks, yet faster — because faults are cheapest at commit, batches stay 
 
 ## Hands-on Implementation in This Repository
 
-Two mini-demos applying the case-study ideas at student scale — one per report question. No Amazon code remains.
-
 **Pipeline:** Developer → GitHub Actions (pytest + Bandit) → Docker build → GHCR (`-netflix`, `-capitalone`) → Kubernetes (rolling update) → Prometheus → Grafana
 
 **Tech stack:** Flask + `prometheus-flask-exporter` · Docker · Kubernetes (Docker Desktop) · GitHub Actions · Ansible · Prometheus & Grafana
